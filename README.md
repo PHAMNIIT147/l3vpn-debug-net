@@ -2,9 +2,10 @@ setup_development_vm_guide
 <br>
 
 # Build VM:
+```
 wget http://releases.ubuntu.com/18.04.3/ubuntu-18.04.3-live-server-amd64.iso
 virt-manager
-
+```
 ## upgrade kernel for VM:
    ```
    sudo apt-get install --install-recommends linux-generic-hwe-18.04
