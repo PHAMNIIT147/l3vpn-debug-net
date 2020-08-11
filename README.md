@@ -5,7 +5,7 @@ setup_development_vm_guide
 wget http://releases.ubuntu.com/18.04.3/ubuntu-18.04.3-live-server-amd64.iso
 virt-manager
 
-##upgrade kernel for VM:
+## upgrade kernel for VM:
    ```
    sudo apt-get install --install-recommends linux-generic-hwe-18.04
    sudo apt-get update
@@ -64,7 +64,7 @@ cd frr
     --enable-systemd \
     --enable-snmp
 ```
-#not use fpm any more, so not use the following configuration:
+## not use fpm any more, so not use the following configuration:
 ```
 ./configure \
     --enable-exampledir=/usr/share/doc/frr/examples/ \
@@ -88,7 +88,7 @@ sudo echo include /usr/local/lib >> /etc/ld.so.conf
 sudo ldconfig
 ```
 
-# Setup modules and frr deamons:
+## Setup modules and frr deamons:
 ```
 cd ~/frr
 sudo su (mode root)
@@ -99,13 +99,13 @@ sudo install -m 640 -o frr -g frr tools/etc/frr/frr.conf /etc/frr/frr.conf
 sudo install -m 640 -o frr -g frr tools/etc/frr/daemons.conf /etc/frr/daemons.conf
 sudo install -m 640 -o frr -g frr tools/etc/frr/daemons /etc/frr/daemons
 ```
-# start frr
+## start frr
 ```
 sudo install -m 644 tools/frr.service /etc/systemd/system/frr.service
 sudo systemctl enable frr
 ```
 
-# enable more protocol in frr
+## enable more protocol in frr
 ```
 sed -i "s/=no/=yes/g" /etc/frr/daemons
 vi (or nano) /etc/frr/daemons
@@ -115,7 +115,7 @@ service frr start
 ps -ef | grep frr
 ```
 
-#load mpls modules
+## load mpls modules
 ```
 modprobe mpls_router
 modprobe mpls_iptunnel
@@ -129,7 +129,7 @@ dummy
 EOF
 ```
 
-#enable kernel routing and enable mpls for interfaces ens8,9,10,11
+## enable kernel routing and enable mpls for interfaces ens8,9,10,11
 ```
 cat >/etc/sysctl.d/90-mpls-router.conf <<EOF
 net.ipv4.ip_forward=1
@@ -150,7 +150,7 @@ EOF
 sysctl -p /etc/sysctl.d/90-mpls-router.conf
 ```
 
-#prevent iser took 2 minute waiting during boot:
+# prevent iser took 2 minute waiting during boot:
 ```
 nano /etc/network/interface
 ​edit: auto  ens3 => allow-hotplug ens3
@@ -159,20 +159,20 @@ nano /etc/network/interface
 #prevent problem link down or link could not connecto to internet of Qemu image in GNS:
 Edit your qemu router template default like ens{0}: cause the problem. It must be ens{port3}. The ens3 is the default port that connect to internet during your build qemu image.
 
-#change Qemu image in GNS3:
+# change Qemu image in GNS3:
 
 [QEMU](https://www.bernhard-ehlers.de/blog/posts/2017-05-20-gns3-modify-qemu-base-image/)
 
-#make fpm-stub: https://github.com/opensourcerouting/fpm-stub
+# make fpm-stub: https://github.com/opensourcerouting/fpm-stub
 ```
 cd fpm-stub
 make QUAGGA_DIR=<location-of-quagga-code>
 ```
 
-#install desktop: not use
+# install desktop: not use
 [DESKTOP](https://itstillworks.com/install-desktop-ubuntu-server-6780086.html)
 
-#install eclipse:
+# install eclipse:
 ` apt install -y eclipse-cdt-*`
 ```
 URL=https://www.eclipse.org/downloads/download.php
@@ -183,5 +183,5 @@ tar zxf eclipse-inst-linux64.tar.gz
 ./eclipse-installer/eclipse-inst
 ```
 
-#install judy:
+# install judy:
 `sudo apt-get install -y libjudy-dev`
