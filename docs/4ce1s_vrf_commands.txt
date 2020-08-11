@@ -1,0 +1,428 @@
+
+# This practic followed the instruction from https://blog.swineson.me/en/use-linux-as-an-mpls-router/
+# Use FRR stable/7.3, build support fpm. Source /home/admin/frr
+# Use fpmstub. Sourc /home/admin/fpm-stub
+# Ubuntu18.04.03 Qemu VM. sodu user/pass: admin/frr. Root user/pass: root/frr
+# GNS3 template: u18FRR
+# GNS3 project: ubuntu-18-04-frr-l3vpn-static
+# Developer can use this setup by doing the following steps: section 2) and section 3)
+# Developer can stand in the linux server and ssh to u18FRR routers: ssh root@ip_of_u18frr_router_ens3, cd /home/admin/fpm-stub; ./fpm-stub to observe frr send routing information to this fpm.
+# Developer can update his own development Qemu image by:
+## to avoid corrupt the common template image, he has to copy this template image in to his own image and create new template from this copied image.
+## he can update his Qemu image when needing: configure his template --> advance -> uncheck associate link to image. 
+## then ceate node, update code ..., shut down, and then --> Open his template --> advance --> check associate link to image. And create his network and run.
+
+topology:                                   RR(ens4)
+                                               |
+					                        (ens4)
+CE1.s1(ens4) -- (ens5)PE1(ens4) -- (ens5)P(ens6) -- (ens4)PE2 (ens5) -- (ens4)CE1.s2
+CE2.s1(ens4) -- (ens6)                                        (ens6) -- (ens4)CE2.s2
+
+1) Common for all routers. This part was setup in u18FRR router already:
+#enable frr
+sed -i "s/=no/=yes/g" /etc/frr/daemons
+vi /etc/frr/daemons
+edit sharpd=no
+service frr stop
+service frr start
+ps -ef | grep frr
+
+#load mpls modules
+modprobe mpls_router
+modprobe mpls_iptunnel
+modprobe mpls_gso
+modprobe dummy numdummies=1
+
+cat >/etc/modules-load.d/mpls.conf <<EOF
+mpls_router
+mpls_iptunnel
+mpls_gso
+dummy
+EOF
+
+cat >/etc/modules-load.d/dummy.conf <<EOF
+dummy
+EOF
+
+cat >/etc/modprobe.d/dummy.conf <<EOF
+options dummy numdummies=1
+EOF
+
+# add dummy0 device on boot:
+vi /etc/systemd/network/dummy0.netdev
+    [NetDev]
+    Name=dummy0
+    Kind=dummy
+
+#enable kernel routing
+cat >/etc/sysctl.d/90-mpls-router.conf <<EOF
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+net.ipv4.conf.all.rp_filter=0
+net.mpls.platform_labels=1048575
+net.ipv4.tcp_l3mdev_accept=1
+net.ipv4.udp_l3mdev_accept=1
+net.mpls.conf.lo.input=1
+net.mpls.conf.ens4.input=1
+net.mpls.conf.ens5.input=1
+net.mpls.conf.ens6.input=1
+net.mpls.conf.ens7.input=1
+net.mpls.conf.ens8.input=1
+net.mpls.conf.ens9.input=1
+net.mpls.conf.ens10.input=1
+EOF
+sysctl -p /etc/sysctl.d/90-mpls-router.conf
+
+2) specific router configuration:
+  
+2.2) PE1:
+
+# enable iBGP
+vtysh
+conf term
+router bgp 65000
+ no bgp default ipv4-unicast
+ neighbor 10.0.0.4 remote-as 65000
+ neighbor 10.0.0.4 update-source dummy0
+ address-family ipv4 vpn
+  neighbor 10.0.0.4 activate
+
+# linux shell to setup VRF
+# customer 1+2
+ip link add customer1 type vrf table 100
+ip link set customer1 up
+ip route add vrf customer1 unreachable default metric 4278198272
+ip -6 route add vrf customer1 unreachable default metric 4278198272
+ip link set ens5 vrf customer1 
+ip link set ens5 up
+ip addr add 172.19.1.1/24 dev ens5
+ip link set ens7 vrf customer1 
+ip link set ens7 up
+ip addr add 172.19.1.3/24 dev ens7
+ 
+ip link add customer2 type vrf table 200
+ip link set customer2 up
+ip route add vrf customer2 unreachable default metric 4278198272
+ip -6 route add vrf customer2 unreachable default metric 4278198272
+ip link set ens6 vrf customer2 
+ip link set ens6 up
+ip addr add 172.19.1.1/24 dev ens6
+
+vtysh config
+conf term
+router bgp 65000 vrf customer1
+ address-family ipv4 unicast
+  redistribute connected
+  redistribute static
+  label vpn export auto
+  rd vpn export 65000:100
+  rt vpn both 65000:100
+  export vpn
+  import vpn
+router bgp 65000 vrf customer2
+ address-family ipv4 unicast
+  redistribute connected
+  redistribute static
+  label vpn export auto
+  rd vpn export 65000:200
+  rt vpn both 65000:200
+  export vpn
+  import vpn
+//////////////////////////////////////////////////
+newroute: family = 28, dst_len = 20, src_len = 0, tos = 0, table = 254, proto = 186, scope = 0, type = 1, flags = 0x0
+Found AF_MPLS RTA_DST
+FOUND AF_MPLS RTA_OIF
+SAI_API_MPLS: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saimpls.c L:336 Func:sai_create_inseg_entry] Entering sai_create_inseg_entry
+
+H▒▒H: [L:337] table:254, inseg oid: 0, inlabel: 0x90100((vc.exp.bos.ttl:144.0.1.0)), number attr_counter: 1
+H▒▒H: [L:338] attr_list:
+ attr_list[0]: Interface index: 11
+
+
+SAI_API_MPLS: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saimpls.c L:344 Func:sai_create_inseg_entry] Exiting sai_create_inseg_entry
+
+newroute: family = 28, dst_len = 20, src_len = 0, tos = 0, table = 254, proto = 186, scope = 0, type = 1, flags = 0x0
+Found AF_MPLS RTA_DST
+FOUND AF_MPLS RTA_OIF
+SAI_API_MPLS: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saimpls.c L:336 Func:sai_create_inseg_entry] Entering sai_create_inseg_entry
+
+H▒▒H: [L:337] table:254, inseg oid: 0, inlabel: 0x91100((vc.exp.bos.ttl:145.0.1.0)), number attr_counter: 1
+H▒▒H: [L:338] attr_list:
+ attr_list[0]: Interface index: 12
+
+
+SAI_API_MPLS: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saimpls.c L:344 Func:sai_create_inseg_entry] Exiting sai_create_inseg_entry
+
+newneigh: family = 2, ifindex = 3, state = 0x10, flags = 0x0, type = 1
+neigh: skipping attr(4)
+neigh: skipping attr(3)
+newneigh: family = 2, ifindex = 3, state = 0x2, flags = 0x0, type = 1
+neigh: skipping attr(4)
+neigh: skipping attr(3)
+
+SAI SDK >
+SAI SDK >
+SAI SDK >
+SAI SDK >
+SAI SDK >
+SAI SDK >
+SAI SDK >newroute: family = 2, dst_len = 24, src_len = 0, tos = 0, table = 100, proto = 186, scope = 0, type = 1, flags = 0x4
+route: skipping attr(15)
+route: skipping attr(6)
+route: skipping attr(30)
+route: FOUND AF_INET with MPLS encap_type: RTA_ENCAP
+route: FOUND AF_INET but MPLS encap_type: LWTUNNEL_ENCAP_MPLS
+route: FOUND encap_type: LWTUNNEL_ENCAP_MPLS
+SAI_API_MPLS: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saimpls.c L:336 Func:sai_create_inseg_entry] Entering sai_create_inseg_entry
+
+H▒▒H: [L:337] table:100, inseg oid: 0, in IP dst: dst: 172.19.2.0
+, number attr_counter: 3
+H▒▒H: [L:338] attr_list:
+ attr_list[0]:  nexthop labels[0]: 0x17000((vc.exp.bos.ttl:23.0.0.0))
+ nexthop labels[1]: 0x90100((vc.exp.bos.ttl:144.0.1.0))
+
+
+ attr_list[1]: gate: 192.168.1.2
+
+
+ attr_list[2]: Interface index: 3
+
+
+SAI_API_MPLS: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saimpls.c L:344 Func:sai_create_inseg_entry] Exiting sai_create_inseg_entry
+
+newroute: family = 2, dst_len = 24, src_len = 0, tos = 0, table = 200, proto = 186, scope = 0, type = 1, flags = 0x4
+route: skipping attr(15)
+route: skipping attr(6)
+route: skipping attr(30)
+route: FOUND AF_INET with MPLS encap_type: RTA_ENCAP
+route: FOUND AF_INET but MPLS encap_type: LWTUNNEL_ENCAP_MPLS
+route: FOUND encap_type: LWTUNNEL_ENCAP_MPLS
+SAI_API_MPLS: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saimpls.c L:336 Func:sai_create_inseg_entry] Entering sai_create_inseg_entry
+
+H▒▒H: [L:337] table:200, inseg oid: 0, in IP dst: dst: 172.19.2.0
+, number attr_counter: 3
+H▒▒H: [L:338] attr_list:
+ attr_list[0]:  nexthop labels[0]: 0x17000((vc.exp.bos.ttl:23.0.0.0))
+ nexthop labels[1]: 0x91100((vc.exp.bos.ttl:145.0.1.0))
+
+
+ attr_list[1]: gate: 192.168.1.2
+
+
+ attr_list[2]: Interface index: 3
+
+
+SAI_API_MPLS: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saimpls.c L:344 Func:sai_create_inseg_entry] Exiting sai_create_inseg_entry
+
+///////////////////////////////////////////////////////
+root@ubuntu180403frr:~# ip route show vrf customer1
+unreachable default metric 4278198272
+172.19.1.0/24 dev ens5 proto kernel scope link src 172.19.1.1
+172.19.1.0/24 dev ens7 proto kernel scope link src 172.19.1.3
+172.19.2.0/24  encap mpls  23/144 via 192.168.1.2 dev ens4 proto 186 metric 20 onlink
+root@ubuntu180403frr:~# ip -d link show vrf
+Command line is not complete. Try option "help"
+root@ubuntu180403frr:~# ip -d link show type vrf
+11: customer1: <NOARP,MASTER,UP,LOWER_UP> mtu 65536 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 56:52:42:05:72:e8 brd ff:ff:ff:ff:ff:ff promiscuity 0
+    vrf table 100 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535
+12: customer2: <NOARP,MASTER,UP,LOWER_UP> mtu 65536 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+    link/ether 16:85:68:4e:0e:69 brd ff:ff:ff:ff:ff:ff promiscuity 0
+    vrf table 200 addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535
+/////////////////////////////////////////////////////
+root@ubuntu180403frr:~# vtysh
+
+Hello, this is FRRouting (version 7.3-7.3.htp).
+Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+ubuntu180403frr# show mpls table
+ Inbound Label  Type  Nexthop      Outbound Label
+ --------------------------------------------------
+ 16             LDP   192.168.1.2  implicit-null
+ 17             LDP   192.168.1.2  16
+ 18             LDP   192.168.1.2  implicit-null
+ 19             LDP   192.168.1.2  17
+ 20             LDP   192.168.1.2  implicit-null
+ 21             LDP   192.168.1.2  implicit-null
+ 22             LDP   192.168.1.2  20
+ 23             LDP   192.168.1.2  21
+ 24             LDP   192.168.1.2  22
+ 25             LDP   192.168.1.2  23
+ 26             LDP   192.168.1.2  24
+ 144            BGP   customer1    -
+ 145            BGP   customer2    -
+
+ 
+2.3) PE2:
+
+# enable iBGP
+vtysh
+conf term
+router bgp 65000
+ no bgp default ipv4-unicast
+ neighbor 10.0.0.4 remote-as 65000
+ neighbor 10.0.0.4 update-source dummy0
+ address-family ipv4 vpn
+  neighbor 10.0.0.4 activate
+
+# linux shell to setup VRF
+# customer 1+2
+ip link add customer1 type vrf table 100
+ip link set customer1 up
+ip route add vrf customer1 unreachable default metric 4278198272
+ip -6 route add vrf customer1 unreachable default metric 4278198272
+ip link set ens5 vrf customer1 
+ip link set ens5 up
+ip addr add 172.19.2.1/24 dev ens5
+ip link set ens7 vrf customer1 
+ip link set ens7 up
+ip addr add 172.19.2.3/24 dev ens7
+
+ip link add customer2 type vrf table 200
+ip link set customer2 up
+ip route add vrf customer2 unreachable default metric 4278198272
+ip -6 route add vrf customer2 unreachable default metric 4278198272
+ip link set ens6 vrf customer2 
+ip link set ens6 up
+ip addr add 172.19.2.1/24 dev ens6
+
+# config BGP with the VFR
+vtysh
+conf term
+router bgp 65000 vrf customer1
+ address-family ipv4 unicast
+  redistribute connected
+  redistribute static
+  label vpn export auto
+  rd vpn export 65000:100
+  rt vpn both 65000:100
+  export vpn
+  import vpn
+router bgp 65000 vrf customer2
+ address-family ipv4 unicast
+  redistribute connected
+  redistribute static
+  label vpn export auto
+  rd vpn export 65000:200
+  rt vpn both 65000:200
+  export vpn
+  import vpn
+  
+2.4) RR:
+# enable iBGP
+vtysh
+conf term
+router bgp 65000
+ no bgp default ipv4-unicast
+ neighbor 10.0.0.1 remote-as 65000
+ neighbor 10.0.0.1 update-source dummy0
+ neighbor 10.0.0.3 remote-as 65000
+ neighbor 10.0.0.3 update-source dummy0
+ address-family ipv4 vpn
+  neighbor 10.0.0.1 activate
+  neighbor 10.0.0.1 route-reflector-client
+  neighbor 10.0.0.3 activate
+  neighbor 10.0.0.3 route-reflector-client
+
+2.5) CE1.site1 and CE2.site1:
+# linux shell
+ip link set ens4 up
+ip addr add 172.19.1.2/24 dev ens4
+ip route add default via 172.19.1.1
+
+2.6 CE1.site2 and CE2.site2:
+# linux shell
+ip link set ens4 up
+ip addr add 172.19.2.2/24 dev ens4
+ip route add default via 172.19.2.1
+
+2.7) CE1.site3:
+# linux shell
+ip link set ens4 up
+ip addr add 172.19.1.4/24 dev ens4
+ip route add default via 172.19.1.3
+
+2.8) CE1.site4:
+# linux shell
+ip link set ens4 up
+ip addr add 172.19.2.4/24 dev ens4
+ip route add default via 172.19.2.3
+
+3) verify:
+#vefiy IGP OSPF at PE1:
+ping -I 10.0.0.1 10.0.0.4 -c 3
+ping -I 10.0.0.1 10.0.0.3 -c 3
+ping -I 10.0.0.1 10.0.0.2 -c 3
+
+#Verify mpls ldp at P:
+vtysh
+show mpls ldp neighbor
+
+#Verify BGP at PE1:
+vtysh
+show ip bgp summary
+
+#Verify VRF and BGP at CE1.s1: 
+ping -I 172.19.1.2 172.19.2.2
+/////////////////////////////////////////////log at PE1:
+SAI_API_NEXT_HOP: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sainexthop.c L:59 Func:sai_create_next_hop_entry] Entering sai_create_next_hop_entry
+
+NEXT_HOP: [L:80] SAI_NEXT_HOP_ATTR_TYPE: nhtype: ip
+NEXT_HOP: [L:91] SAI_NEXT_HOP_ATTR_IP: sai_ip_addr: 172.19.1.2
+NEXT_HOP: [L:97] SAI_NEXT_HOP_ATTR_ROUTER_INTERFACE_ID: oid: c000004 router interface object
+SAI_API_NEXT_HOP: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sainexthop.c L:107 Func:sai_create_next_hop_entry] Exiting sai_create_next_hop_entry
+
+SAI_API_NEIGHBOR: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saineighbor.c L:126 Func:sai_create_neighbor_entry] Entering sai_create_neighbor_entry
+
+NEIGHBOR: [L:36] sai_neighbor_entry_parse
+NEIGHBOR: [L:37] rif_id: c000004 router interface object
+NEIGHBOR: [L:39] ip_address: 172.19.1.2
+NEIGHBOR: [L:58] sai_neighbor_entry_attribute_parse
+NEIGHBOR: [L:65] mac:  0. 0. 0. 0. 0. 0
+NEIGHBOR: [L:91] entry_string: neighbor:  rif c000004172.19.1.2
+SAI_API_NEIGHBOR: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saineighbor.c L:174 Func:sai_create_neighbor_entry] Exiting sai_create_neighbor_entry
+
+SAI_API_ROUTE: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sairoute.c L:204 Func:sai_remove_route_entry] Entering sai_remove_route_entry
+
+UNSPECIFIED: [L:132] SAI_IP_ADDR_FAMILY_IPV4
+UNSPECIFIED: [L:139] Ipv4: 172.19.1.2; prefix_len: 32
+ROUTE: [L:39] route_entry->vr_id: 10000001 virtual router object
+SAI_API_ROUTE: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sairoute.c L:229 Func:sai_remove_route_entry] Exiting sai_remove_route_entry
+
+SAI_API_ROUTE: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sairoute.c L:129 Func:sai_create_route_entry] Entering sai_create_route_entry
+
+UNSPECIFIED: [L:132] SAI_IP_ADDR_FAMILY_IPV4
+UNSPECIFIED: [L:139] Ipv4: 172.19.1.2; prefix_len: 32
+ROUTE: [L:39] route_entry->vr_id: 10000001 virtual router object
+ROUTE: [L:80] SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID: oid: 1c000006 nexthop object
+SAI_API_ROUTE: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sairoute.c L:185 Func:sai_create_route_entry] Exiting sai_create_route_entry
+
+
+#Verify VRF and BGP at CE2.s1: 
+ping -I 172.19.1.2 172.19.2.2
+/////////////////////////////////////////////log at PE1:
+SAI_API_NEXT_HOP: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sainexthop.c L:59 Func:sai_create_next_hop_entry] Entering sai_create_next_hop_entry
+
+NEXT_HOP: [L:80] SAI_NEXT_HOP_ATTR_TYPE: nhtype: ip
+NEXT_HOP: [L:91] SAI_NEXT_HOP_ATTR_IP: sai_ip_addr: 172.19.1.2
+NEXT_HOP: [L:97] SAI_NEXT_HOP_ATTR_ROUTER_INTERFACE_ID: oid: c000006 router interface object
+SAI_API_NEXT_HOP: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sainexthop.c L:107 Func:sai_create_next_hop_entry] Exiting sai_create_next_hop_entry
+
+SAI_API_NEIGHBOR: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saineighbor.c L:126 Func:sai_create_neighbor_entry] Entering sai_create_neighbor_entry
+
+NEIGHBOR: [L:36] sai_neighbor_entry_parse
+NEIGHBOR: [L:37] rif_id: c000006 router interface object
+NEIGHBOR: [L:39] ip_address: 172.19.1.2
+NEIGHBOR: [L:58] sai_neighbor_entry_attribute_parse
+NEIGHBOR: [L:65] mac:  0. 0. 0. 0. 0. 0
+NEIGHBOR: [L:91] entry_string: neighbor:  rif c000006172.19.1.2
+SAI_API_NEIGHBOR: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/saineighbor.c L:174 Func:sai_create_neighbor_entry] Exiting sai_create_neighbor_entry
+
+SAI_API_ROUTE: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sairoute.c L:129 Func:sai_create_route_entry] Entering sai_create_route_entry
+
+UNSPECIFIED: [L:132] SAI_IP_ADDR_FAMILY_IPV4
+UNSPECIFIED: [L:139] Ipv4: 172.19.1.2; prefix_len: 32
+ROUTE: [L:39] route_entry->vr_id: 10000001 virtual router object
+ROUTE: [L:80] SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID: oid: 1c000005 nexthop object
+SAI_API_ROUTE: [F:/mnt/ssd/dinhln/saisdk/apps/saidaemon/../../driver/src/generic/switchsai/sairoute.c L:185 Func:sai_create_route_entry] Exiting sai_create_route_entry
+
