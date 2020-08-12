@@ -11,126 +11,129 @@
 ## he can update his Qemu image when needing: configure his template --> advance -> uncheck associate link to image. 
 ## then ceate node, update code ..., shut down, and then --> Open his template --> advance --> check associate link to image. And create his network and run.
 
-topology:                                   RR(ens4)
+topology:  
+```
+				           RR(ens4)
                                                |
-					                        (ens4)
-CE1.s1(ens4) -- (ens5)PE1(ens4) -- (ens5)P(ens6) -- (ens4)PE2 (ens5) -- (ens4)CE1.s2
-CE2.s1(ens4) -- (ens6)                                        (ens6) -- (ens4)CE2.s2
+					       |             (ens4)
+CE1.s1(ens4) -- (ens5)PE1(ens4) -- (ens5)P(ens6) -- (ens4)PE2(ens5) -- (ens4)CE1.s2
+CE2.s1(ens4) -- (ens6)                                       (ens6) -- (ens4)CE2.s2
+```
 
 1) Common for all routers. This part was setup in u18FRR router already:
 #enable frr
-sed -i "s/=no/=yes/g" /etc/frr/daemons
-vi /etc/frr/daemons
-edit sharpd=no
-service frr stop
-service frr start
-ps -ef | grep frr
+	sed -i "s/=no/=yes/g" /etc/frr/daemons
+	vi /etc/frr/daemons
+	edit sharpd=no
+	service frr stop
+	service frr start
+	ps -ef | grep frr
 
 #load mpls modules
-modprobe mpls_router
-modprobe mpls_iptunnel
-modprobe mpls_gso
-modprobe dummy numdummies=1
+	modprobe mpls_router
+	modprobe mpls_iptunnel
+	modprobe mpls_gso
+	modprobe dummy numdummies=1
 
-cat >/etc/modules-load.d/mpls.conf <<EOF
-mpls_router
-mpls_iptunnel
-mpls_gso
-dummy
-EOF
+	cat >/etc/modules-load.d/mpls.conf <<EOF
+	mpls_router
+	mpls_iptunnel
+	mpls_gso
+	dummy
+	EOF
 
-cat >/etc/modules-load.d/dummy.conf <<EOF
-dummy
-EOF
+	cat >/etc/modules-load.d/dummy.conf <<EOF
+	dummy
+	EOF
 
-cat >/etc/modprobe.d/dummy.conf <<EOF
-options dummy numdummies=1
-EOF
+	cat >/etc/modprobe.d/dummy.conf <<EOF
+	options dummy numdummies=1
+	EOF
 
 # add dummy0 device on boot:
-vi /etc/systemd/network/dummy0.netdev
-    [NetDev]
-    Name=dummy0
-    Kind=dummy
+	vi /etc/systemd/network/dummy0.netdev
+	    [NetDev]
+	    Name=dummy0
+	    Kind=dummy
 
 #enable kernel routing
-cat >/etc/sysctl.d/90-mpls-router.conf <<EOF
-net.ipv4.ip_forward=1
-net.ipv6.conf.all.forwarding=1
-net.ipv4.conf.all.rp_filter=0
-net.mpls.platform_labels=1048575
-net.ipv4.tcp_l3mdev_accept=1
-net.ipv4.udp_l3mdev_accept=1
-net.mpls.conf.lo.input=1
-net.mpls.conf.ens4.input=1
-net.mpls.conf.ens5.input=1
-net.mpls.conf.ens6.input=1
-net.mpls.conf.ens7.input=1
-net.mpls.conf.ens8.input=1
-net.mpls.conf.ens9.input=1
-net.mpls.conf.ens10.input=1
-EOF
-sysctl -p /etc/sysctl.d/90-mpls-router.conf
+	cat >/etc/sysctl.d/90-mpls-router.conf <<EOF
+	net.ipv4.ip_forward=1
+	net.ipv6.conf.all.forwarding=1
+	net.ipv4.conf.all.rp_filter=0
+	net.mpls.platform_labels=1048575
+	net.ipv4.tcp_l3mdev_accept=1
+	net.ipv4.udp_l3mdev_accept=1
+	net.mpls.conf.lo.input=1
+	net.mpls.conf.ens4.input=1
+	net.mpls.conf.ens5.input=1
+	net.mpls.conf.ens6.input=1
+	net.mpls.conf.ens7.input=1
+	net.mpls.conf.ens8.input=1
+	net.mpls.conf.ens9.input=1
+	net.mpls.conf.ens10.input=1
+	EOF
+	sysctl -p /etc/sysctl.d/90-mpls-router.conf
 
 2) specific router configuration:
 2.1) P:
-vtysh
-conf term
-mpls ldp
- router-id 10.0.0.2
- address-family ipv4
-  discovery transport-address 10.0.0.2
-  interface ens4
-  interface ens5
-  interface ens6
-  #label local advertise explicit-null
-  #no PHP: label local advertise explicit-null
+	vtysh
+	conf term
+	mpls ldp
+	 router-id 10.0.0.2
+	 address-family ipv4
+	  discovery transport-address 10.0.0.2
+	  interface ens4
+	  interface ens5
+	  interface ens6
+	  #label local advertise explicit-null
+	  #no PHP: label local advertise explicit-null
   
 2.1.1) P1:
-vtysh
-conf term
-mpls ldp
- router-id 10.0.0.5
- address-family ipv4
-  discovery transport-address 10.0.0.5
-  interface ens4
-  interface ens5
-  #label local advertise explicit-null
-  #no PHP: label local advertise explicit-null
+	vtysh
+	conf term
+	mpls ldp
+	 router-id 10.0.0.5
+	 address-family ipv4
+	  discovery transport-address 10.0.0.5
+	  interface ens4
+	  interface ens5
+	  #label local advertise explicit-null
+	  #no PHP: label local advertise explicit-null
   
 2.2) PE1:
-vtysh
-conf term
-mpls ldp
- router-id 10.0.0.1
- address-family ipv4
-  discovery transport-address 10.0.0.1
-  interface ens4
+	vtysh
+	conf term
+	mpls ldp
+	 router-id 10.0.0.1
+	 address-family ipv4
+	  discovery transport-address 10.0.0.1
+	  interface ens4
   
 2.3) PE2:
-vtysh
-conf term
-mpls ldp
- router-id 10.0.0.3
- address-family ipv4
-  discovery transport-address 10.0.0.3
-  interface ens4
+	vtysh
+	conf term
+	mpls ldp
+	 router-id 10.0.0.3
+	 address-family ipv4
+	  discovery transport-address 10.0.0.3
+	  interface ens4
   
 2.4) RR:
-vtysh
-conf term
-mpls ldp
- router-id 10.0.0.4
- address-family ipv4
-  discovery transport-address 10.0.0.4
-  interface ens4
+	vtysh
+	conf term
+	mpls ldp
+	 router-id 10.0.0.4
+	 address-family ipv4
+	  discovery transport-address 10.0.0.4
+	  interface ens4
 
 3) verify:
 #vefiy IGP OSPF at PE1:
-ping -I 10.0.0.1 10.0.0.4 -c 3
-ping -I 10.0.0.1 10.0.0.3 -c 3
-ping -I 10.0.0.1 10.0.0.2 -c 3
+	ping -I 10.0.0.1 10.0.0.4 -c 3
+	ping -I 10.0.0.1 10.0.0.3 -c 3
+	ping -I 10.0.0.1 10.0.0.2 -c 3
 
 #Verify mpls ldp at P:
-vtysh
-show mpls ldp neighbor
+	vtysh
+	show mpls ldp neighbor
