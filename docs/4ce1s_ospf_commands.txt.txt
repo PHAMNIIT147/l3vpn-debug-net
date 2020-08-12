@@ -1,12 +1,12 @@
-#This practic followed the instruction from https://blog.swineson.me/en/use-linux-as-an-mpls-router/
-#Use FRR stable/7.3, build support fpm. Source /home/admin/frr
-#Use fpmstub. Sourc /home/admin/fpm-stub
-#Ubuntu18.04.03 Qemu VM. sodu user/pass: admin/frr. Root user/pass: root/frr
-#GNS3 template: u18FRR
-#GNS3 project: ubuntu-18-04-frr-l3vpn-static
-#Developer can use this setup by doing the following steps: section 2) and section 3)
-#Developer can stand in the linux server and ssh to u18FRR routers: ssh root@ip_of_u18frr_router_ens3, cd /home/admin/fpm-stub; ./fpm-stub to observe frr send routing information to this fpm.
-#Developer can update his own development Qemu image by:
+# This practic followed the instruction from https://blog.swineson.me/en/use-linux-as-an-mpls-router/
+# Use FRR stable/7.3, build support fpm. Source /home/admin/frr
+# Use fpmstub. Sourc /home/admin/fpm-stub
+# Ubuntu18.04.03 Qemu VM. sodu user/pass: admin/frr. Root user/pass: root/frr
+# GNS3 template: u18FRR
+# GNS3 project: ubuntu-18-04-frr-l3vpn-static
+# Developer can use this setup by doing the following steps: section 2) and section 3)
+# Developer can stand in the linux server and ssh to u18FRR routers: ssh root@ip_of_u18frr_router_ens3, cd /home/admin/fpm-stub; ./fpm-stub to observe frr send routing information to this fpm.
+# Developer can update his own development Qemu image by:
 ## to avoid corrupt the common template image, he has to copy this template image in to his own image and create new template from this copied image.
 ## he can update his Qemu image when needing: configure his template --> advance -> uncheck associate link to image. 
 ## then ceate node, update code ..., shut down, and then --> Open his template --> advance --> check associate link to image. And create his network and run.
