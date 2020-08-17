@@ -1,18 +1,22 @@
 setup_development_vm_guide_inphi_copration_internetional_singapore
-<br>
 
-# Build VM:
+# :building_construction: Build VM:
 ```
 wget http://releases.ubuntu.com/18.04.3/ubuntu-18.04.3-live-server-amd64.iso
 virt-manager
 ```
+# :wrench: Config adminstor when login root
+```
+sudo psswd root
+```
+
 ## upgrade kernel for VM:
-   ```
-   sudo apt-get install --install-recommends linux-generic-hwe-18.04
-   sudo apt-get update
-   sudo apt-get dist-upgrade
-   sudo reboot
-   ```
+```
+sudo apt-get install --install-recommends linux-generic-hwe-18.04
+sudo apt-get update
+sudo apt-get dist-upgrade
+sudo reboot
+```
 # :pencil: Enable console through serial (telnet): 
 
 ```
@@ -20,13 +24,13 @@ sudo sed -i 's/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=ttyS0,115200 co
 sudo update-grub
 ```
 
-## Note (do the following to interact with keyboard in serial terminal): in machine information, display -> keyboard: en-us
+## :pencil2: Note (do the following to interact with keyboard in serial terminal): in machine information, display -> keyboard: en-us
 
-# FRR source and compilation and installation:
+# :globe_with_meridians: FRR source and compilation and installation:
 
 [FRR](http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-ubuntu1804.html)
 
-## Install packages to build the FRR. If some more package miss, please google.
+## :wrench: Install packages to build the FRR. If some more package miss, please google.
 ```
 sudo apt-get install git autoconf automake libtool make gawk libreadline-dev texinfo
 sudo apt-get install pkg-config libpam0g-dev libjson-c-dev bison flex python-pytest
@@ -37,7 +41,7 @@ sudo apt install snmpd snmp libsnmp-dev
 ```
 
 
-## Ensure that the libyang build requirements are met before continuing
+## :wrench: Ensure that the libyang build requirements are met before continuing
 ```
 git clone https://github.com/CESNET/libyang.git
 cd libyang
@@ -48,9 +52,7 @@ make
 sudo make install
 ```
 
-## Add FRR user and groups
-
- 
+## :alien: Add FRR user and groups
 ```
 sudo groupadd -r -g 92 frr
 sudo groupadd -r -g 85 frrvty
@@ -59,7 +61,7 @@ sudo adduser --system --ingroup frr --home /var/run/frr/ \
 sudo usermod -a -G frrvty frr
 ```
 
-## Source: 
+## :package: Source: 
 ```
 git clone https://github.com/frrouting/frr.git frr
 git checkout stable/7.3
@@ -115,7 +117,7 @@ sudo install -m 640 -o frr -g frr tools/etc/frr/frr.conf /etc/frr/frr.conf
 sudo install -m 640 -o frr -g frr tools/etc/frr/daemons.conf /etc/frr/daemons.conf
 sudo install -m 640 -o frr -g frr tools/etc/frr/daemons /etc/frr/daemons
 ```
-## start frr
+## Start frr
 ```
 sudo install -m 644 tools/frr.service /etc/systemd/system/frr.service
 sudo systemctl enable frr
@@ -145,7 +147,10 @@ dummy
 EOF
 ```
 
-## enable kernel routing and enable mpls for interfaces ens8,9,10,11
+# Enable kernel routing and enable mpls for interfaces ens8,9,10,11
+
+Running on GNS3
+
 ```
 cat >/etc/sysctl.d/90-mpls-router.conf <<EOF
 net.ipv4.ip_forward=1
