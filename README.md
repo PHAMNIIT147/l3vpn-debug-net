@@ -1,4 +1,4 @@
-setup_development_vm_guide
+setup_development_vm_guide_inphi_copration_internetional_singapore
 <br>
 
 # Build VM:
@@ -13,7 +13,7 @@ virt-manager
    sudo apt-get dist-upgrade
    sudo reboot
    ```
-## enable console through serial:
+# :pencil: Enable console through serial (telnet): 
 
 ```
 sudo sed -i 's/GRUB_CMDLINE_LINUX=.*/GRUB_CMDLINE_LINUX="console=ttyS0,115200 console=tty0"/' /etc/default/grub
@@ -26,28 +26,43 @@ sudo update-grub
 
 [FRR](http://docs.frrouting.org/projects/dev-guide/en/latest/building-frr-for-ubuntu1804.html)
 
-## install packages to build the FRR. If some more package miss, please google.
+## Install packages to build the FRR. If some more package miss, please google.
 ```
 sudo apt-get install git autoconf automake libtool make gawk libreadline-dev texinfo
 sudo apt-get install pkg-config libpam0g-dev libjson-c-dev bison flex python-pytest
 sudo apt-get install libc-ares-dev python3-dev libsystemd-dev python-ipaddress
 sudo apt-get install libpcre3-dev libpcre3 doxygen graphviz  python3-sphinx install-info
-sudo apt-get install build-essential libsystemd-dev libjson libcap-dev
-sudo apt-get install -y libjson-c-dev
-sudo apt update
+sudo apt-get install build-essential libsystemd-dev libjson-c-dev libcap-dev
 sudo apt install snmpd snmp libsnmp-dev
 ```
 
-## Source: 
-```
-git clone https://github.com/FRRouting/frr.git
-git checkout stable/7.3
 
+## Ensure that the libyang build requirements are met before continuing
+```
+git clone https://github.com/CESNET/libyang.git
+cd libyang
+mkdir build; cd build
+cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+      -D CMAKE_BUILD_TYPE:String="Release" ..
+make
+sudo make install
+```
+
+## Add FRR user and groups
+
+ 
+```
 sudo groupadd -r -g 92 frr
 sudo groupadd -r -g 85 frrvty
 sudo adduser --system --ingroup frr --home /var/run/frr/ \
    --gecos "FRR suite" --shell /usr/sbin/nologin frr
 sudo usermod -a -G frrvty frr
+```
+
+## Source: 
+```
+git clone https://github.com/frrouting/frr.git frr
+git checkout stable/7.3
 
 cd frr
 ./bootstrap.sh
