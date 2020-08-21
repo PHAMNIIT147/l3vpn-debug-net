@@ -206,3 +206,31 @@ tar zxf eclipse-inst-linux64.tar.gz
 
 # install judy:
 `sudo apt-get install -y libjudy-dev`
+
+# 08/21/2020 Compile SAI SDK
+-> install libraries on Local Computer: 
+```
+  647  libnl-3-200-dbg
+  648  libnl-3-dev
+  649  libnl-3-doc
+  650  libnl-genl-3-200
+  651  libnl-genl-3-200-dev
+  652  libnl-route-3-200
+  653  libnl-route-3-200-dev
+  654  sudo apt install libnfnetlink-dev
+  655  sudo apt install pkg-config.
+  656  sudo apt install pkg-config
+  657  sudo apt install libnl-route-3-dev
+  658  sudo apt update
+```
+## Compile SAI SDK
+```
+$ cd info folder{SDK_PATH}/apps/saidaemon
+$ make clean
+$ make 
+```
+
+## Run SAI daemon application
+```
+{SDK_PATH}/.build/apps/saidaemon/said
+```
